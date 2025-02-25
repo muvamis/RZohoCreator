@@ -1,9 +1,5 @@
 Package: RZohoCreator
-<<<<<<< HEAD
-Title: What the Package Does (One Line, Title Case)
-=======
 Title: Pacote para integração com API de Zoho Creator
->>>>>>> authentication
 Version: 0.0.0.9000
 Authors@R: 
     person("MUVA", "MIS", mis.admin@muvamoz.org", role = c("aut", "cre"))

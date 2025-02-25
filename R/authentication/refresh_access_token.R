@@ -46,5 +46,3 @@ refresh_access_token <- function(client_id, client_secret, refresh_token){
   # returns the access token
   return(response_data)
 }
-
-

@@ -1,0 +1,74 @@
+#' Refresh Access Token
+#'
+#' Esta função renova o access token utilizando o refresh token fornecido.
+#'
+#' @param client_id O ID do cliente fornecido pela Zoho.
+#' @param client_secret O segredo do cliente fornecido pela Zoho.
+#' @param refresh_token O token de renovação fornecido pela Zoho.
+#'
+#' Para mais detalhes sobre a obtenção do client_id, client_secret e refresh_token, consulte:
+#' [Zoho OAuth Overview](https://www.zoho.com/creator/help/api/v2.1/oauth-overview.html).
+#'
+#' @return Retorna a resposta completa da requisição em formato JSON, que geralmente contém os seguintes campos:
+#'
+#' - `access_token`: O novo token de acesso, utilizado para autenticar as requisições à API.
+#' - `expires_in`: O tempo de expiração do access token, geralmente em segundos.
+#' - `token_type`: O tipo do token retornado, normalmente "Bearer".
+#' - `api_domain`: O domínio da API que deve ser usado para fazer chamadas autenticadas.
+#' - `error` (opcional): Caso ocorra um erro na requisição, esse campo pode conter a descrição do erro.
+#'
+#' @examples
+#' \dontrun{
+#' client_id <- "seu_client_id"
+#' client_secret <- "seu_client_secret"
+#' refresh_token <- "seu_refresh_token"
+#' response <- refresh_access_token(client_id, client_secret, refresh_token)
+#' print(response)
+#' }
+#'
+#' # Exemplo de resposta esperada:
+#' # {
+#' #   "access_token": "1000.abcdef1234567890ghijklmnopqrstu",
+#' #   "refresh_token": "1000.zyxwvutsrqponmlkjihgfedcba123456",
+#' #   "api_domain": "https://www.zohoapis.com",
+#' #   "token_type": "Bearer",
+#' #   "expires_in": 3600
+#' # }
+#'
+#' @export
+
+refresh_access_token <- function(client_id, client_secret, refresh_token) {
+
+  # Verifica se os pacotes necessários estão instalados
+  if (!requireNamespace("httr", quietly = TRUE)) {
+    stop("O pacote 'httr' é necessário. Instale com install.packages('httr').")
+  }
+  if (!requireNamespace("jsonlite", quietly = TRUE)) {
+    stop("O pacote 'jsonlite' é necessário. Instale com install.packages('jsonlite').")
+  }
+  if (!requireNamespace("glue", quietly = TRUE)) {
+    stop("O pacote 'glue' é necessário. Instale com install.packages('glue').")
+  }
+
+  # Construção da URL
+  url <- glue::glue(
+    "https://accounts.zoho.com/oauth/v2/token",
+    "?refresh_token={refresh_token}",
+    "&client_id={client_id}",
+    "&client_secret={client_secret}",
+    "&grant_type=refresh_token"
+  )
+
+  # Realiza a requisição HTTP
+  response <- httr::POST(url, encode = "form")
+
+  # Verifica se houve erro na requisição
+  if (httr::status_code(response) != 200) {
+    stop("Erro ao renovar o token: ", httr::content(response, "text"))
+  }
+
+  # Retorna a resposta JSON parseada
+  return(httr::content(response, "parsed"))
+}
+
+

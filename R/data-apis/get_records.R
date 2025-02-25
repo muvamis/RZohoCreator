@@ -1,3 +1,6 @@
+#' @title Get Records
+#'
+#' @export
 get_records <- function(account_owner_name, app_name, report_name, access_token){
   # Inicialização
   all_records <- list() # Lista para armazenar todos os registros

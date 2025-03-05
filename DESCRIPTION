@@ -2,13 +2,13 @@ Package: RZohoCreator
 Title: Pacote para integração com API de Zoho Creator
 Version: 0.0.0.9000
 Authors@R: 
-    person("MUVA", "MIS", mis.admin@muvamoz.org", role = c("aut", "cre"))
+    person("MUVA", "MIS",email ="mis.admin@muvamoz.org", role = c("aut", "cre"))
 Description: Pacote para integração com API de Zoho Creator
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
-imports:
+Imports:
         httr,
         jsonlite,
         glue

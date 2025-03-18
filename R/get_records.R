@@ -32,9 +32,9 @@
 
 get_records <- function(account_owner_name, app_name, report_name, access_token, modified_time_last = NULL) {
   # Inicialização
-  all_records <- list() # Lista para armazenar todos os registros
-  cursor <- NULL # Inicializa o cursor
-  more_records <- TRUE # Flag para o loop
+  all_records <- list()  # Lista para armazenar todos os registros
+  cursor <- NULL  # Inicializa o cursor
+  more_records <- TRUE  # Flag para o loop
 
   # Construir URL base da API
   url <- glue("https://zohoapis.com/creator/v2.1/data/{account_owner_name}/{app_name}/report/{report_name}")
@@ -42,37 +42,45 @@ get_records <- function(account_owner_name, app_name, report_name, access_token,
   while (more_records) {
     # Construir a query para filtrar registros modificados após `modified_time_last`
     query_params <- list(max_records = 1000)
+
+    # Aplicar filtro apenas se `modified_time_last` não for NULL
     if (!is.null(modified_time_last)) {
-      query_params$filter = glue('("Modified_Time" > "{modified_time_last}")')
+      query_params$filter <- glue('("Modified_Time" > "{modified_time_last}")')
     }
 
-    # Fazer a requisição à API
-    response_data <- request(url) |>
-      req_headers(
-        Authorization = paste("Zoho-oauthtoken", access_token),
-        accept = "application/json"
-      ) |>
-      req_url_query(!!!query_params) |>  # Adicionar query dinamicamente
-      req_perform()
+    # Fazer a requisição à API com tratamento de erro
+    response_data <- tryCatch({
+      request(url) |>
+        req_headers(
+          Authorization = paste("Zoho-oauthtoken", access_token),
+          accept = "application/json"
+        ) |>
+        req_url_query(!!!query_params) |>  # Adicionar query dinamicamente
+        req_perform()
+    }, error = function(e) {
+      message("❌ Erro na requisição: ", e$message)
+      return(NULL)
+    })
 
-    if (response_data$status_code == 200) {
-      # Processar JSON
-      response_json <- resp_body_json(response_data)
+    # Verificar se a requisição foi bem-sucedida
+    if (is.null(response_data) || response_data$status_code != 200) {
+      stop("❌ Erro na requisição: Código ", response_data$status_code)
+    }
 
-      # Extrair registros (assumindo que os registros estão na chave 'data')
-      if (!is.null(response_json$data)) {
-        all_records <- append(all_records, response_json$data)
-      }
+    # Processar JSON
+    response_json <- resp_body_json(response_data)
 
-      # Atualizar cursor (se disponível)
-      if (!is.null(response_json$headers$record_cursor)) {
-        cursor <- response_json$headers$record_cursor
-        message("Cursor atualizado: ", cursor)
-      } else {
-        more_records <- FALSE
-      }
+    # Extrair registros (assumindo que os registros estão na chave 'data')
+    if (!is.null(response_json$data)) {
+      all_records <- append(all_records, response_json$data)
+    }
+
+    # Atualizar cursor (se disponível)
+    if (!is.null(response_json$headers$record_cursor)) {
+      cursor <- response_json$headers$record_cursor
+      message("🔄 Cursor atualizado: ", cursor)
     } else {
-      stop("Erro na requisição: ", response_data$status_code)
+      more_records <- FALSE
     }
   }
 
@@ -80,8 +88,12 @@ get_records <- function(account_owner_name, app_name, report_name, access_token,
   if (length(all_records) > 0) {
     data <- do.call(rbind, lapply(all_records, as.data.frame))
 
-    # Atualizar `modified_time_last` com o maior valor encontrado
-    modified_time_last <- max(data$Modified_Time, na.rm = TRUE)
+    # Verifica se a coluna "Modified_Time" existe antes de calcular o máximo
+    if ("Modified_Time" %in% names(data)) {
+      modified_time_last <- max(data$Modified_Time, na.rm = TRUE)
+    } else {
+      modified_time_last <- NULL
+    }
 
     # Mensagem informando quantos registros foram baixados
     message("✅ ", nrow(data), " novos registros foram baixados.")

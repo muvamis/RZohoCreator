@@ -48,6 +48,9 @@ get_records <- function(account_owner_name, app_name, report_name, access_token,
       query_params$filter <- glue('("Modified_Time" > "{modified_time_last}")')
     }
 
+    # Aguardar 2 segundos para evitar bloqueio da API
+    Sys.sleep(2)
+
     # Fazer a requisição à API com tratamento de erro
     response_data <- tryCatch({
       request(url) |>
@@ -63,7 +66,9 @@ get_records <- function(account_owner_name, app_name, report_name, access_token,
     })
 
     # Verificar se a requisição foi bem-sucedida
-    if (is.null(response_data) || response_data$status_code != 200) {
+    if (is.null(response_data) || response_data$status_code == 401) {
+      stop("❌ Erro: HTTP 401 Unauthorized. O access_token pode estar expirado.")
+    } else if (response_data$status_code != 200) {
       stop("❌ Erro na requisição: Código ", response_data$status_code)
     }
 
@@ -89,10 +94,10 @@ get_records <- function(account_owner_name, app_name, report_name, access_token,
     data <- do.call(rbind, lapply(all_records, as.data.frame))
 
     # Verifica se a coluna "Modified_Time" existe antes de calcular o máximo
-    if ("Modified_Time" %in% names(data)) {
+    if (nrow(data) > 0 && "Modified_Time" %in% names(data)) {
       modified_time_last <- max(data$Modified_Time, na.rm = TRUE)
     } else {
-      modified_time_last <- NULL
+      modified_time_last <- NULL  # Evita erro de "-Inf"
     }
 
     # Mensagem informando quantos registros foram baixados

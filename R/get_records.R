@@ -29,31 +29,34 @@
 #' view(registros)
 #'
 #' @export
-get_records <- function(account_owner_name, app_name, report_name, access_token){
+
+get_records <- function(account_owner_name, app_name, report_name, access_token, modified_time_last = NULL) {
   # Inicialização
   all_records <- list() # Lista para armazenar todos os registros
   cursor <- NULL # Inicializa o cursor
   more_records <- TRUE # Flag para o loop
 
-  # URL da API
+  # Construir URL base da API
   url <- glue("https://zohoapis.com/creator/v2.1/data/{account_owner_name}/{app_name}/report/{report_name}")
 
-
   while (more_records) {
-    # requisição para buscar os dados
+    # Construir a query para filtrar registros modificados após `modified_time_last`
+    query_params <- list(max_records = 1000)
+    if (!is.null(modified_time_last)) {
+      query_params$filter = glue('("Modified_Time" > "{modified_time_last}")')
+    }
+
+    # Fazer a requisição à API
     response_data <- request(url) |>
       req_headers(
         Authorization = paste("Zoho-oauthtoken", access_token),
-        accept = "application/json",
-        record_cursor = cursor
+        accept = "application/json"
       ) |>
-      req_url_query(
-        max_records = 1000
-      ) |>
+      req_url_query(!!!query_params) |>  # Adicionar query dinamicamente
       req_perform()
 
-    if (response_data$status_code == 200){
-      # Processar o JSON
+    if (response_data$status_code == 200) {
+      # Processar JSON
       response_json <- resp_body_json(response_data)
 
       # Extrair registros (assumindo que os registros estão na chave 'data')
@@ -62,21 +65,31 @@ get_records <- function(account_owner_name, app_name, report_name, access_token)
       }
 
       # Atualizar cursor (se disponível)
-      if (!is.null(response_data$headers$record_cursor)) {
-        cursor <- response_data$headers$record_cursor
-        print(cursor)
-        message(length(response_json$data))
+      if (!is.null(response_json$headers$record_cursor)) {
+        cursor <- response_json$headers$record_cursor
+        message("Cursor atualizado: ", cursor)
       } else {
         more_records <- FALSE
       }
     } else {
       stop("Erro na requisição: ", response_data$status_code)
     }
-
   }
 
   # Converter lista de dados em um data frame final
-  data <- do.call(rbind, lapply(all_records, as.data.frame))
+  if (length(all_records) > 0) {
+    data <- do.call(rbind, lapply(all_records, as.data.frame))
 
-  return (data)
+    # Atualizar `modified_time_last` com o maior valor encontrado
+    modified_time_last <- max(data$Modified_Time, na.rm = TRUE)
+
+    # Mensagem informando quantos registros foram baixados
+    message("✅ ", nrow(data), " novos registros foram baixados.")
+    message("Última modificação baixada: ", modified_time_last)
+
+    return(list(data = data, modified_time_last = modified_time_last))
+  } else {
+    message("ℹ️ Nenhum novo registro encontrado após ", modified_time_last)
+    return(list(data = NULL, modified_time_last = modified_time_last))
+  }
 }

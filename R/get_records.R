@@ -29,84 +29,54 @@
 #' view(registros)
 #'
 #' @export
-
-get_records <- function(account_owner_name, app_name, report_name, access_token, modified_time_last = NULL) {
+get_records <- function(account_owner_name, app_name, report_name, access_token){
   # Inicialização
-  all_records <- list()  # Lista para armazenar todos os registros
-  cursor <- NULL  # Inicializa o cursor
-  more_records <- TRUE  # Flag para o loop
+  all_records <- list() # Lista para armazenar todos os registros
+  cursor <- NULL # Inicializa o cursor
+  more_records <- TRUE # Flag para o loop
 
-  # Construir URL base da API
+  # URL da API
   url <- glue("https://zohoapis.com/creator/v2.1/data/{account_owner_name}/{app_name}/report/{report_name}")
 
+
   while (more_records) {
-    # Construir a query para filtrar registros modificados após `modified_time_last`
-    query_params <- list(max_records = 1000)
+    # requisição para buscar os dados
+    response_data <- request(url) |>
+      req_headers(
+        Authorization = paste("Zoho-oauthtoken", access_token),
+        accept = "application/json",
+        record_cursor = cursor
+      ) |>
+      req_url_query(
+        max_records = 1000
+      ) |>
+      req_perform()
 
-    # Aplicar filtro apenas se `modified_time_last` não for NULL
-    if (!is.null(modified_time_last)) {
-      query_params$filter <- glue('("Modified_Time" > "{modified_time_last}")')
-    }
+    if (response_data$status_code == 200){
+      # Processar o JSON
+      response_json <- resp_body_json(response_data)
 
-    # Aguardar 2 segundos para evitar bloqueio da API
-    Sys.sleep(2)
+      # Extrair registros (assumindo que os registros estão na chave 'data')
+      if (!is.null(response_json$data)) {
+        all_records <- append(all_records, response_json$data)
+      }
 
-    # Fazer a requisição à API com tratamento de erro
-    response_data <- tryCatch({
-      request(url) |>
-        req_headers(
-          Authorization = paste("Zoho-oauthtoken", access_token),
-          accept = "application/json"
-        ) |>
-        req_url_query(!!!query_params) |>  # Adicionar query dinamicamente
-        req_perform()
-    }, error = function(e) {
-      message("❌ Erro na requisição: ", e$message)
-      return(NULL)
-    })
-
-    # Verificar se a requisição foi bem-sucedida
-    if (is.null(response_data) || response_data$status_code == 401) {
-      stop("❌ Erro: HTTP 401 Unauthorized. O access_token pode estar expirado.")
-    } else if (response_data$status_code != 200) {
-      stop("❌ Erro na requisição: Código ", response_data$status_code)
-    }
-
-    # Processar JSON
-    response_json <- resp_body_json(response_data)
-
-    # Extrair registros (assumindo que os registros estão na chave 'data')
-    if (!is.null(response_json$data)) {
-      all_records <- append(all_records, response_json$data)
-    }
-
-    # Atualizar cursor (se disponível)
-    if (!is.null(response_json$headers$record_cursor)) {
-      cursor <- response_json$headers$record_cursor
-      message("🔄 Cursor atualizado: ", cursor)
+      # Atualizar cursor (se disponível)
+      if (!is.null(response_data$headers$record_cursor)) {
+        cursor <- response_data$headers$record_cursor
+        print(cursor)
+        message(length(response_json$data))
+      } else {
+        more_records <- FALSE
+      }
     } else {
-      more_records <- FALSE
+      stop("Erro na requisição: ", response_data$status_code)
     }
+
   }
 
   # Converter lista de dados em um data frame final
-  if (length(all_records) > 0) {
-    data <- do.call(rbind, lapply(all_records, as.data.frame))
+  data <- do.call(rbind, lapply(all_records, as.data.frame))
 
-    # Verifica se a coluna "Modified_Time" existe antes de calcular o máximo
-    if (nrow(data) > 0 && "Modified_Time" %in% names(data)) {
-      modified_time_last <- max(data$Modified_Time, na.rm = TRUE)
-    } else {
-      modified_time_last <- NULL  # Evita erro de "-Inf"
-    }
-
-    # Mensagem informando quantos registros foram baixados
-    message("✅ ", nrow(data), " novos registros foram baixados.")
-    message("Última modificação baixada: ", modified_time_last)
-
-    return(list(data = data, modified_time_last = modified_time_last))
-  } else {
-    message("ℹ️ Nenhum novo registro encontrado após ", modified_time_last)
-    return(list(data = NULL, modified_time_last = modified_time_last))
-  }
+  return (data)
 }

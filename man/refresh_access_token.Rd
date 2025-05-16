@@ -13,6 +13,11 @@ refresh_access_token(client_id, client_secret, refresh_token)
 
 \item{refresh_token}{O token de renovação fornecido pela Zoho
 
+Se nao tiver ainda os paramentos em cima segue o resumo em baixo
+Resumo dos Passos para Registrar e Obter as Credenciais da API Zoho
+Registrar uma aplicação no Zoho Developer Console, selecionar "Server-based Applications" e obter client_id e client_secret.
+Gerar um código de autorização, acessando a URL de autenticação substituindo <client_id> e <redirect_uri>, fazer login e copiar o código (code) da URL de redirecionamento.
+Trocar o código pelo refresh_token, enviando uma requisição à API da Zoho para obter os tokens necessários. Mais detalhes na documentação oficial.
 Segue https://www.zoho.com/creator/help/api/v2.1/oauth-overview.html Para ter
 acesso ao client_id, client_secret, refresh_token.}
 }
